@@ -1,6 +1,8 @@
 const axios = require("axios");
 const bcrypt = require("bcryptjs");
 const db = require("../database/dbConfig");
+const jwtKey = require("../_secrets/keys").jwtKey;
+const jwt = require("jsonwebtoken");
 
 const { authenticate } = require("./middlewares");
 
@@ -25,8 +27,32 @@ function register(req, res) {
     .catch(err => json({ message: "Error adding user to the database", err }));
 }
 
+function generateToken(user) {
+  const payload = {
+    subject: user.id,
+    username: user.username
+  };
+  const secret = jwtKey;
+  const options = {
+    expiresIn: "10m"
+  };
+  return jwt.sign(payload, secret, options);
+}
+
 function login(req, res) {
-  // implement user login
+  const creds = req.body;
+  db("users")
+    .where({ username: creds.username })
+    .first()
+    .then(user => {
+      if (user && bcrypt.compareSync(creds.password, user.password)) {
+        const token = generateToken(user);
+        res.status(201).json({ message: "Welcome", token });
+      } else {
+        res.status(201).json({ message: "not authorized" });
+      }
+    })
+    .catch(err => res.send({ message: "not authorized", err }));
 }
 
 function getJokes(req, res) {
